@@ -1,0 +1,19 @@
+# Copyright © 2017 Trevor Spiteri
+
+# Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+# https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+# <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+# option. This file may not be copied, modified, or distributed
+# except according to those terms.
+
+[package]
+name = "scat"
+version = "0.1.0"
+authors = ["Trevor Spiteri <tspiteri@ieee.org>"]
+description = "String concatenation"
+documentation = "https://docs.rs/scat/"
+repository = "https://gitlab.com/tspiteri/scat"
+readme = "README.md"
+keywords = ["concatenation", "string"]
+categories = ["rust-patterns"]
+license = "MIT/Apache-2.0"
