@@ -24,28 +24,28 @@ your option.
 The crate provides one constant, `SCAT`, that can be used to start a
 concatenation expression. The concatenation can then be converted or
 appended to a `String`. The final length is computed in the beginning
-so that at most one allocation is used.
+so that at most one allocation or reallocation takes place.
 
 ## Examples
 
 ```rust
 use scat::SCAT;
 
-let cat1 = SCAT + "hello, " + "world! " + '☺';
+let cat1 = SCAT + "Hello, " + "world! " + '☺';
 let s1 = String::from(cat1);
-assert_eq!(s1, "hello, world! ☺");
+assert_eq!(s1, "Hello, world! ☺");
 
-let mut s2 = String::from("hello");
+let mut s2 = String::from("Hello");
 s2 += SCAT + ',' + " world" + String::from("! ") + '☺';
-assert_eq!(s2, "hello, world! ☺");
+assert_eq!(s2, "Hello, world! ☺");
 
 let mut buf = String::from("☺");
 buf.reserve(14);
 let ptr = buf.as_ptr();
 // buf is large enough, so no reallocations take place
-let cat3 = SCAT + "hello, " + "world! " + buf;
-let s3 = String::from(cat3)
-assert_eq!(s3, "hello, world! ☺");
+let cat3 = SCAT + "Hello, " + "world! " + buf;
+let s3 = String::from(cat3);
+assert_eq!(s3, "Hello, world! ☺");
 assert_eq!(s3.as_ptr(), ptr);
 ```
 

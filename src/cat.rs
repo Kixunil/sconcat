@@ -7,7 +7,8 @@
 // except according to those terms.
 
 use std::cmp;
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
+use std::mem;
 use std::ops::{Add, AddAssign};
 use std::ptr;
 use std::slice;
@@ -18,18 +19,18 @@ use std::slice;
 ///
 /// This trait is unsafe because returning a value which is too small
 /// from `max_len()` can lead to writing to unallocated memory.
-pub unsafe trait Cat: Display {
+pub unsafe trait Cat: Debug + Display {
     /// Maximum number of bytes that will be written.
     fn max_len(&self) -> usize;
     /// Maximum capacity of available Vec<u8>.
-    fn max_capacity(&self) -> usize;
+    fn largest_owned(&self) -> usize;
     /// Write up to `self.max_len()` bytes at `ptr`, returning the
     /// real length.
     ///
     /// # Safety
     ///
     /// This function is unsafe because it writes to a pointer.
-    unsafe fn write_to(self, ptr: *mut u8) -> usize;
+    unsafe fn write_to(&self, ptr: *mut u8) -> usize;
     /// Convert to Vec<u8> with `before` uninitialized bytes at the
     /// beginning and `after` uninitialized bytes at the end.
     ///
@@ -45,11 +46,11 @@ unsafe impl<'a> Cat for char {
         self.len_utf8()
     }
 
-    fn max_capacity(&self) -> usize {
+    fn largest_owned(&self) -> usize {
         0
     }
 
-    unsafe fn write_to(self, dst: *mut u8) -> usize {
+    unsafe fn write_to(&self, dst: *mut u8) -> usize {
         let len = self.len_utf8();
         let dst_slice = slice::from_raw_parts_mut(dst, len);
         self.encode_utf8(dst_slice);
@@ -74,11 +75,11 @@ unsafe impl<'a> Cat for &'a str {
         self.len()
     }
 
-    fn max_capacity(&self) -> usize {
+    fn largest_owned(&self) -> usize {
         0
     }
 
-    unsafe fn write_to(self, dst: *mut u8) -> usize {
+    unsafe fn write_to(&self, dst: *mut u8) -> usize {
         let src = self.as_bytes().as_ptr();
         let count = self.len();
         ptr::copy_nonoverlapping(src, dst, count);
@@ -103,11 +104,11 @@ unsafe impl Cat for String {
         self.len()
     }
 
-    fn max_capacity(&self) -> usize {
+    fn largest_owned(&self) -> usize {
         self.capacity()
     }
 
-    unsafe fn write_to(self, dst: *mut u8) -> usize {
+    unsafe fn write_to(&self, dst: *mut u8) -> usize {
         let src = self.as_bytes().as_ptr();
         let count = self.len();
         ptr::copy_nonoverlapping(src, dst, count);
@@ -142,11 +143,11 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
             .expect("capacity overflow")
     }
 
-    fn max_capacity(&self) -> usize {
-        cmp::max(self.lhs.max_capacity(), self.rhs.max_capacity())
+    fn largest_owned(&self) -> usize {
+        cmp::max(self.lhs.largest_owned(), self.rhs.largest_owned())
     }
 
-    unsafe fn write_to(self, dst: *mut u8) -> usize {
+    unsafe fn write_to(&self, dst: *mut u8) -> usize {
         let len_lhs = self.lhs.write_to(dst);
         let dst_rhs = dst.wrapping_offset(len_lhs as isize);
         let len_rhs = self.rhs.write_to(dst_rhs);
@@ -156,8 +157,8 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8> {
         let max_len_lhs = self.lhs.max_len();
         let max_len_rhs = self.rhs.max_len();
-        let max_cap_lhs = self.lhs.max_capacity();
-        let max_cap_rhs = self.rhs.max_capacity();
+        let largest_lhs = self.lhs.largest_owned();
+        let largest_rhs = self.rhs.largest_owned();
         let req_cap = before
             .checked_add(max_len_lhs)
             .and_then(|a| a.checked_add(max_len_rhs))
@@ -172,7 +173,7 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
         //   once if the actual lenght of lhs < max_len_lhs.
         // * Else use lhs: do *not* use rhs, otherwise we may pay the
         //   penalty above and still need to reallocate memory.
-        if max_cap_lhs >= req_cap || max_cap_rhs < req_cap {
+        if largest_lhs >= req_cap || largest_rhs < req_cap {
             let after_lhs =
                 after.checked_add(max_len_rhs).expect("capacity overflow");
             let mut v = self.lhs.to_vec_with_uninit(before, after_lhs);
@@ -220,25 +221,32 @@ impl<L: Cat, R: Cat> From<CatMany<L, R>> for String {
     }
 }
 
+impl<L: Cat, R: Cat> Debug for CatMany<L, R> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.lhs, f)?;
+        Display::fmt(" + ", f)?;
+        Debug::fmt(&self.rhs, f)
+    }
+}
+
 impl<L: Cat, R: Cat> Display for CatMany<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.lhs.fmt(f)?;
-        self.rhs.fmt(f)
+        Display::fmt(&self.lhs, f)?;
+        Display::fmt(&self.rhs, f)
     }
 }
 
 impl<L: Cat, R: Cat> AddAssign<CatMany<L, R>> for String {
     fn add_assign(&mut self, rhs: CatMany<L, R>) {
-        let len_lhs = self.len();
-        let max_len_rhs = rhs.max_len();
-        let v = unsafe { self.as_mut_vec() };
-        v.reserve(max_len_rhs);
-        unsafe {
-            v.set_len(len_lhs + max_len_rhs);
-            let dst_rhs = v.as_mut_ptr().wrapping_offset(len_lhs as isize);
-            let len_rhs = rhs.write_to(dst_rhs);
-            v.set_len(len_lhs + len_rhs);
-        }
+        // steal String from borrow
+        let mut steal = String::new();
+        mem::swap(self, &mut steal);
+        let cat = CatMany::<String, CatMany<L, R>> {
+            lhs: steal,
+            rhs: rhs,
+        };
+        steal = cat.into();
+        mem::swap(self, &mut steal);
     }
 }
 
@@ -265,24 +273,29 @@ impl<T: Cat> From<CatOne<T>> for String {
     }
 }
 
+impl<T: Cat> Debug for CatOne<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.inner, f)
+    }
+}
+
 impl<T: Cat> Display for CatOne<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.inner.fmt(f)
+        Display::fmt(&self.inner, f)
     }
 }
 
 impl<T: Cat> AddAssign<CatOne<T>> for String {
     fn add_assign(&mut self, rhs: CatOne<T>) {
-        let len_lhs = self.len();
-        let max_len_rhs = rhs.inner.max_len();
-        let v = unsafe { self.as_mut_vec() };
-        v.reserve(max_len_rhs);
-        unsafe {
-            v.set_len(len_lhs + max_len_rhs);
-            let dst_rhs = v.as_mut_ptr().wrapping_offset(len_lhs as isize);
-            let len_rhs = rhs.inner.write_to(dst_rhs);
-            v.set_len(len_lhs + len_rhs);
-        }
+        // steal String from borrow
+        let mut steal = String::new();
+        mem::swap(self, &mut steal);
+        let cat = CatMany::<String, T> {
+            lhs: steal,
+            rhs: rhs.inner,
+        };
+        steal = cat.into();
+        mem::swap(self, &mut steal);
     }
 }
 
@@ -297,13 +310,13 @@ pub struct Scat;
 /// ```rust
 /// use scat::SCAT;
 ///
-/// let cat = SCAT + "hello, " + "world! " + '☺';
+/// let cat = SCAT + "Hello, " + "world! " + '☺';
 /// let s = String::from(cat);
-/// assert_eq!(s, "hello, world! ☺");
+/// assert_eq!(s, "Hello, world! ☺");
 ///
-/// let mut s2 = String::from("hello");
+/// let mut s2 = String::from("Hello");
 /// s2 += SCAT + ',' + " world" + String::from("! ") + '☺';
-/// assert_eq!(s2, "hello, world! ☺");
+/// assert_eq!(s2, "Hello, world! ☺");
 /// ```
 pub const SCAT: Scat = Scat;
 
@@ -320,6 +333,12 @@ impl From<Scat> for String {
     }
 }
 
+impl Debug for Scat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt("\"\"", f)
+    }
+}
+
 impl Display for Scat {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         Ok(())
@@ -332,12 +351,13 @@ impl AddAssign<Scat> for String {
 
 #[cfg(test)]
 mod tests {
-    use cat::SCAT;
+    use SCAT;
+
     #[test]
     fn it_works() {
-        let z = SCAT + "hello, " + String::from("world");
-        assert_eq!(z.to_string(), "hello, world");
-        assert_eq!(String::from(z), "hello, world");
+        let cat = SCAT + "Hello, " + String::from("world");
+        assert_eq!(cat.to_string(), "Hello, world");
+        assert_eq!(String::from(cat), "Hello, world");
 
         let mut s = String::new();
         s.reserve(20);
@@ -345,5 +365,21 @@ mod tests {
         s += SCAT + "12345" + "67890" + '1' + String::from("2345") + "67890";
         assert_eq!(s, "12345678901234567890");
         assert_eq!(s.as_ptr(), ptr);
+    }
+
+    #[test]
+    fn formatting() {
+        let cat0 = SCAT;
+        assert_eq!(format!("{}", cat0), "");
+        assert_eq!(format!("{:?}", cat0), "\"\"");
+        let cat1 = cat0 + "Hello, ";
+        assert_eq!(format!("{}", cat1), "Hello, ");
+        assert_eq!(format!("{:?}", cat1), "\"Hello, \"");
+        let cat2 = cat1 + "world! ";
+        assert_eq!(format!("{}", cat2), "Hello, world! ");
+        assert_eq!(format!("{:?}", cat2), "\"Hello, \" + \"world! \"");
+        let cat3 = cat2 + '☺';
+        assert_eq!(format!("{}", cat3), "Hello, world! ☺");
+        assert_eq!(format!("{:?}", cat3), "\"Hello, \" + \"world! \" + '☺'");
     }
 }
