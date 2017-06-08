@@ -12,10 +12,31 @@ use std::ops::{Add, AddAssign};
 use std::ptr;
 use std::slice;
 
+/// Trait for types that can be concatenated.
+///
+/// # Safety
+///
+/// This trait is unsafe because returning a value which is too small
+/// from `max_len()` can lead to writing to unallocated memory.
 pub unsafe trait Cat: Display {
+    /// Maximum number of bytes that will be written.
     fn max_len(&self) -> usize;
-    fn has_capacity(&self) -> usize;
+    /// Maximum capacity of available Vec<u8>.
+    fn max_capacity(&self) -> usize;
+    /// Write up to `self.max_len()` bytes at `ptr`, returning the
+    /// real length.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it writes to a pointer.
     unsafe fn write_to(self, ptr: *mut u8) -> usize;
+    /// Convert to Vec<u8> with `before` uninitialized bytes at the
+    /// beginning and `after` uninitialized bytes at the end.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it return uninitialized
+    /// memory.
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8>;
 }
 
@@ -24,7 +45,7 @@ unsafe impl<'a> Cat for char {
         self.len_utf8()
     }
 
-    fn has_capacity(&self) -> usize {
+    fn max_capacity(&self) -> usize {
         0
     }
 
@@ -38,9 +59,8 @@ unsafe impl<'a> Cat for char {
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8> {
         let capacity = self.len_utf8()
             .checked_add(before)
-            .expect("overflow")
-            .checked_add(after)
-            .expect("overflow");
+            .and_then(|a| a.checked_add(after))
+            .expect("capacity overflow");
         let mut v = Vec::<u8>::with_capacity(capacity);
         v.set_len(capacity);
         let dst = v.as_mut_ptr().wrapping_offset(before as isize);
@@ -54,7 +74,7 @@ unsafe impl<'a> Cat for &'a str {
         self.len()
     }
 
-    fn has_capacity(&self) -> usize {
+    fn max_capacity(&self) -> usize {
         0
     }
 
@@ -68,9 +88,8 @@ unsafe impl<'a> Cat for &'a str {
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8> {
         let capacity = self.len()
             .checked_add(before)
-            .expect("overflow")
-            .checked_add(after)
-            .expect("overflow");
+            .and_then(|a| a.checked_add(after))
+            .expect("capacity overflow");
         let mut v = Vec::<u8>::with_capacity(capacity);
         v.set_len(capacity);
         let dst = v.as_mut_ptr().wrapping_offset(before as isize);
@@ -84,7 +103,7 @@ unsafe impl Cat for String {
         self.len()
     }
 
-    fn has_capacity(&self) -> usize {
+    fn max_capacity(&self) -> usize {
         self.capacity()
     }
 
@@ -96,11 +115,11 @@ unsafe impl Cat for String {
     }
 
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8> {
-        let additional = before.checked_add(after).expect("overflow");
+        let additional = before.checked_add(after).expect("capacity overflow");
         let mut v = self.into_bytes();
         let count = v.len();
         v.reserve(additional);
-        // reserve already makes sure we have enough space
+        // reserve() already makes sure we have enough space
         v.set_len(count + additional);
         // this copy can overlap
         let src = v.as_ptr();
@@ -120,11 +139,11 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
         self.lhs
             .max_len()
             .checked_add(self.rhs.max_len())
-            .expect("overflow")
+            .expect("capacity overflow")
     }
 
-    fn has_capacity(&self) -> usize {
-        cmp::max(self.lhs.has_capacity(), self.rhs.has_capacity())
+    fn max_capacity(&self) -> usize {
+        cmp::max(self.lhs.max_capacity(), self.rhs.max_capacity())
     }
 
     unsafe fn write_to(self, dst: *mut u8) -> usize {
@@ -137,17 +156,25 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
     unsafe fn to_vec_with_uninit(self, before: usize, after: usize) -> Vec<u8> {
         let max_len_lhs = self.lhs.max_len();
         let max_len_rhs = self.rhs.max_len();
-        let cap_lhs = self.lhs.has_capacity();
-        let cap_rhs = self.rhs.has_capacity();
-        let cap_req = before
+        let max_cap_lhs = self.lhs.max_capacity();
+        let max_cap_rhs = self.rhs.max_capacity();
+        let req_cap = before
             .checked_add(max_len_lhs)
             .and_then(|a| a.checked_add(max_len_rhs))
             .and_then(|a| a.checked_add(after))
-            .expect("overflow");
-        if cap_lhs >= cap_req || (cap_rhs < cap_req && cap_lhs > 0) ||
-            cap_rhs == 0
-        {
-            let after_lhs = after.checked_add(max_len_rhs).expect("overflow");
+            .expect("capacity overflow");
+
+        // * If lhs has enough capacity, use lhs: no reallocations,
+        //   and no need to move bytes.
+        // * Else if rhs has enough capacity, use rhs: no
+        //   reallocations, but may need to move bytes up to two
+        //   times: once so that the lhs won't overwrite the rhs, and
+        //   once if the actual lenght of lhs < max_len_lhs.
+        // * Else use lhs: do *not* use rhs, otherwise we may pay the
+        //   penalty above and still need to reallocate memory.
+        if max_cap_lhs >= req_cap || max_cap_rhs < req_cap {
+            let after_lhs =
+                after.checked_add(max_len_rhs).expect("capacity overflow");
             let mut v = self.lhs.to_vec_with_uninit(before, after_lhs);
             let before_rhs = v.len() - after_lhs;
             let dst_rhs = v.as_mut_ptr().wrapping_offset(before_rhs as isize);
@@ -155,7 +182,8 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
             v.set_len(before_rhs + len_rhs + after);
             v
         } else {
-            let before_rhs = before.checked_add(max_len_lhs).expect("overflow");
+            let before_rhs =
+                before.checked_add(max_len_lhs).expect("capacity overflow");
             let mut v = self.rhs.to_vec_with_uninit(before_rhs, after);
             let len_rhs = v.len() - before_rhs - after;
             let dst_lhs = v.as_mut_ptr().wrapping_offset(before as isize);
@@ -194,7 +222,8 @@ impl<L: Cat, R: Cat> From<CatMany<L, R>> for String {
 
 impl<L: Cat, R: Cat> Display for CatMany<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.lhs, self.rhs)
+        self.lhs.fmt(f)?;
+        self.rhs.fmt(f)
     }
 }
 
@@ -238,7 +267,7 @@ impl<T: Cat> From<CatOne<T>> for String {
 
 impl<T: Cat> Display for CatOne<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.inner)
+        self.inner.fmt(f)
     }
 }
 
