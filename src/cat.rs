@@ -19,7 +19,7 @@ use std::slice;
 ///
 /// This trait is unsafe because returning a value which is too small
 /// from `max_len()` can lead to writing to unallocated memory.
-pub unsafe trait Cat: Debug + Display {
+pub unsafe trait Cat {
     /// Maximum number of bytes that will be written.
     fn max_len(&self) -> usize;
     /// Maximum capacity of available Vec<u8>.
@@ -241,7 +241,7 @@ impl<L: Cat, R: Cat> From<CatMany<L, R>> for String {
     }
 }
 
-impl<L: Cat, R: Cat> Debug for CatMany<L, R> {
+impl<L: Cat + Debug, R: Cat + Debug> Debug for CatMany<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Debug::fmt(&self.lhs, f)?;
         Display::fmt(" + ", f)?;
@@ -249,7 +249,7 @@ impl<L: Cat, R: Cat> Debug for CatMany<L, R> {
     }
 }
 
-impl<L: Cat, R: Cat> Display for CatMany<L, R> {
+impl<L: Cat + Display, R: Cat + Display> Display for CatMany<L, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.lhs, f)?;
         Display::fmt(&self.rhs, f)
@@ -313,13 +313,13 @@ impl<T: Cat> From<CatOne<T>> for String {
     }
 }
 
-impl<T: Cat> Debug for CatOne<T> {
+impl<T: Cat + Debug> Debug for CatOne<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Debug::fmt(&self.inner, f)
     }
 }
 
-impl<T: Cat> Display for CatOne<T> {
+impl<T: Cat + Display> Display for CatOne<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.inner, f)
     }
