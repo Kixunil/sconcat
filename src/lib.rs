@@ -100,11 +100,12 @@
 //! sconcat = "0.1"
 //! ```
 //!
+//! [CAT]:     constant.CAT.html
+//! [Debug]:   https://doc.rust-lang.org/std/fmt/trait.Debug.html
+//! [Display]: https://doc.rust-lang.org/std/fmt/trait.Display.html
+//! [String]:  https://doc.rust-lang.org/std/string/struct.String.html
 //! [char]:    https://doc.rust-lang.org/std/primitive.char.html
 //! [str]:     https://doc.rust-lang.org/std/primitive.str.html
-//! [String]:  https://doc.rust-lang.org/std/string/struct.String.html
-//! [Display]: https://doc.rust-lang.org/std/fmt/trait.Display.html
-//! [CAT]:    constant.CAT.html
 
 mod cat;
 pub use cat::CAT;
