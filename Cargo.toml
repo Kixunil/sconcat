@@ -8,7 +8,7 @@
 
 [package]
 name = "sconcat"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Trevor Spiteri <tspiteri@ieee.org>"]
 description = "String concatenation"
 documentation = "https://docs.rs/sconcat/"
