@@ -202,6 +202,23 @@ unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
     }
 }
 
+impl<L: Cat, R: Cat> Add<CatNone> for CatMany<L, R> {
+    type Output = CatMany<L, R>;
+    fn add(self, _rhs: CatNone) -> CatMany<L, R> {
+        self
+    }
+}
+
+impl<L: Cat, R: Cat, RR: Cat> Add<CatOne<RR>> for CatMany<L, R> {
+    type Output = CatMany<CatMany<L, R>, RR>;
+    fn add(self, rhs: CatOne<RR>) -> CatMany<CatMany<L, R>, RR> {
+        CatMany {
+            lhs: self,
+            rhs: rhs.inner,
+        }
+    }
+}
+
 impl<L: Cat, R: Cat, RR: Cat> Add<RR> for CatMany<L, R> {
     type Output = CatMany<CatMany<L, R>, RR>;
     fn add(self, rhs: RR) -> CatMany<CatMany<L, R>, RR> {
@@ -252,6 +269,23 @@ impl<L: Cat, R: Cat> AddAssign<CatMany<L, R>> for String {
 
 pub struct CatOne<T: Cat> {
     inner: T,
+}
+
+impl<T: Cat> Add<CatNone> for CatOne<T> {
+    type Output = CatOne<T>;
+    fn add(self, _rhs: CatNone) -> CatOne<T> {
+        self
+    }
+}
+
+impl<L: Cat, R: Cat> Add<CatOne<R>> for CatOne<L> {
+    type Output = CatMany<L, R>;
+    fn add(self, rhs: CatOne<R>) -> CatMany<L, R> {
+        CatMany {
+            lhs: self.inner,
+            rhs: rhs.inner,
+        }
+    }
 }
 
 impl<L: Cat, R: Cat> Add<R> for CatOne<L> {
@@ -319,6 +353,20 @@ pub struct CatNone;
 /// assert_eq!(s2, "Hello, world! ☺");
 /// ```
 pub const CAT: CatNone = CatNone;
+
+impl Add<CatNone> for CatNone {
+    type Output = CatNone;
+    fn add(self, _rhs: CatNone) -> CatNone {
+        self
+    }
+}
+
+impl<T: Cat> Add<CatOne<T>> for CatNone {
+    type Output = CatOne<T>;
+    fn add(self, rhs: CatOne<T>) -> CatOne<T> {
+        rhs
+    }
+}
 
 impl<T: Cat> Add<T> for CatNone {
     type Output = CatOne<T>;
