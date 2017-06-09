@@ -299,7 +299,7 @@ impl<T: Cat> AddAssign<CatOne<T>> for String {
     }
 }
 
-pub struct Scat;
+pub struct CatNone;
 
 /// A term that is used to start a string concatenation.
 ///
@@ -308,68 +308,68 @@ pub struct Scat;
 /// # Examples
 ///
 /// ```rust
-/// use scat::SCAT;
+/// use sconcat::CAT;
 ///
-/// let cat = SCAT + "Hello, " + "world! " + '☺';
+/// let cat = CAT + "Hello, " + "world! " + '☺';
 /// let s = String::from(cat);
 /// assert_eq!(s, "Hello, world! ☺");
 ///
 /// let mut s2 = String::from("Hello");
-/// s2 += SCAT + ',' + " world" + String::from("! ") + '☺';
+/// s2 += CAT + ',' + " world" + String::from("! ") + '☺';
 /// assert_eq!(s2, "Hello, world! ☺");
 /// ```
-pub const SCAT: Scat = Scat;
+pub const CAT: CatNone = CatNone;
 
-impl<T: Cat> Add<T> for Scat {
+impl<T: Cat> Add<T> for CatNone {
     type Output = CatOne<T>;
     fn add(self, rhs: T) -> CatOne<T> {
         CatOne { inner: rhs }
     }
 }
 
-impl From<Scat> for String {
-    fn from(_src: Scat) -> String {
+impl From<CatNone> for String {
+    fn from(_src: CatNone) -> String {
         String::new()
     }
 }
 
-impl Debug for Scat {
+impl Debug for CatNone {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt("\"\"", f)
     }
 }
 
-impl Display for Scat {
+impl Display for CatNone {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         Ok(())
     }
 }
 
-impl AddAssign<Scat> for String {
-    fn add_assign(&mut self, _rhs: Scat) {}
+impl AddAssign<CatNone> for String {
+    fn add_assign(&mut self, _rhs: CatNone) {}
 }
 
 #[cfg(test)]
 mod tests {
-    use SCAT;
+    use CAT;
 
     #[test]
     fn it_works() {
-        let cat = SCAT + "Hello, " + String::from("world");
+        let cat = CAT + "Hello, " + String::from("world");
         assert_eq!(cat.to_string(), "Hello, world");
         assert_eq!(String::from(cat), "Hello, world");
 
         let mut s = String::new();
         s.reserve(20);
         let ptr = s.as_ptr();
-        s += SCAT + "12345" + "67890" + '1' + String::from("2345") + "67890";
+        s += CAT + "12345" + "67890" + '1' + String::from("2345") + "67890";
         assert_eq!(s, "12345678901234567890");
         assert_eq!(s.as_ptr(), ptr);
     }
 
     #[test]
     fn formatting() {
-        let cat0 = SCAT;
+        let cat0 = CAT;
         assert_eq!(format!("{}", cat0), "");
         assert_eq!(format!("{:?}", cat0), "\"\"");
         let cat1 = cat0 + "Hello, ";

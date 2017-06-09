@@ -11,10 +11,10 @@
 //! Concatenatation of [characters][char], [string slices][str] and
 //! [owned strings][String].
 //!
-//! A concatenation is started with the [`SCAT`][SCAT] constant, and
-//! any number of characters, string slices or strings can be
-//! concatenated using the `+` operator. The concatenation can be
-//! converted or appended to a [`String`][String].
+//! A concatenation is started with the [`CAT`][CAT] constant, and any
+//! number of characters, string slices or strings can be concatenated
+//! using the `+` operator. The concatenation can be converted or
+//! appended to a [`String`][String].
 //!
 //! If the concatenation contains at least one owned string with
 //! enough capacity to store the result, the leftmost such string will
@@ -31,14 +31,14 @@
 //! A concatenation can be converted to a `String`.
 //!
 //! ```rust
-//! use scat::SCAT;
+//! use sconcat::CAT;
 //!
-//! let cat1 = SCAT + "Hello, " + "world! " + '☺';
+//! let cat1 = CAT + "Hello, " + "world! " + '☺';
 //! // One allocation and no following reallocations:
 //! let s1 = String::from(cat1);
 //! assert_eq!(s1, "Hello, world! ☺");
 //!
-//! let cat2 = SCAT + String::from("Hello, ") + "world! " + '☺';
+//! let cat2 = CAT + String::from("Hello, ") + "world! " + '☺';
 //! // At most one reallocation as the initial `String` is resized:
 //! let s2 = String::from(cat2);
 //! assert_eq!(s2, "Hello, world! ☺");
@@ -47,9 +47,9 @@
 //! A concatenation can also be appended to a `String`.
 //!
 //! ```rust
-//! use scat::SCAT;
+//! use sconcat::CAT;
 //!
-//! let cat = SCAT + "world! " + '☺';
+//! let cat = CAT + "world! " + '☺';
 //! let mut s = String::from("Hello, ");
 //! // At most one reallocation as the initial `s` is resized:
 //! s += cat;
@@ -60,12 +60,12 @@
 //! take place.
 //!
 //! ```rust
-//! use scat::SCAT;
+//! use sconcat::CAT;
 //!
 //! let mut s1 = String::from("☺");
 //! s1.reserve(14);
 //! let ptr = s1.as_ptr();
-//! let cat = SCAT + "Hello, " + "world! " + s1;
+//! let cat = CAT + "Hello, " + "world! " + s1;
 //! let s2 = String::from(cat);
 //! assert_eq!(s2, "Hello, world! ☺");
 //! assert_eq!(s2.as_ptr(), ptr);
@@ -77,9 +77,9 @@
 //! `cat.to_string()` where possible.
 //!
 //! ```rust
-//! use scat::SCAT;
+//! use sconcat::CAT;
 //!
-//! let cat = SCAT + "Hello, " + "world! " + '☺';
+//! let cat = CAT + "Hello, " + "world! " + '☺';
 //! // `s1` can be resized up to three times:
 //! let s1 = cat.to_string();
 //! assert_eq!(s1, "Hello, world! ☺");
@@ -92,42 +92,42 @@
 //!
 //! ## Usage
 //!
-//! To use `scat` in your crate, add `extern crate scat;` to the crate
-//! root and add `scat` as a dependency in `Cargo.toml`:
+//! To use `sconcat` in your crate, add `extern crate sconcat;` to the
+//! crate root and add `sconcat` as a dependency in `Cargo.toml`:
 //!
 //! ```toml
 //! [dependencies]
-//! scat = "0.1"
+//! sconcat = "0.1"
 //! ```
 //!
 //! [char]:    https://doc.rust-lang.org/std/primitive.char.html
 //! [str]:     https://doc.rust-lang.org/std/primitive.str.html
 //! [String]:  https://doc.rust-lang.org/std/string/struct.String.html
 //! [Display]: https://doc.rust-lang.org/std/fmt/trait.Display.html
-//! [SCAT]:    constant.SCAT.html
+//! [CAT]:    constant.CAT.html
 
 mod cat;
-pub use cat::SCAT;
+pub use cat::CAT;
 
 #[cfg(test)]
 mod tests {
-    use SCAT;
+    use CAT;
 
     #[test]
     fn readme_example_works() {
-        let cat1 = SCAT + "Hello, " + "world! " + '☺';
+        let cat1 = CAT + "Hello, " + "world! " + '☺';
         let s1 = String::from(cat1);
         assert_eq!(s1, "Hello, world! ☺");
 
         let mut s2 = String::from("Hello");
-        s2 += SCAT + ',' + " world" + String::from("! ") + '☺';
+        s2 += CAT + ',' + " world" + String::from("! ") + '☺';
         assert_eq!(s2, "Hello, world! ☺");
 
         let mut buf = String::from("☺");
         buf.reserve(14);
         let ptr = buf.as_ptr();
         // buf is large enough, so no reallocations take place
-        let cat3 = SCAT + "Hello, " + "world! " + buf;
+        let cat3 = CAT + "Hello, " + "world! " + buf;
         let s3 = String::from(cat3);
         assert_eq!(s3, "Hello, world! ☺");
         assert_eq!(s3.as_ptr(), ptr);

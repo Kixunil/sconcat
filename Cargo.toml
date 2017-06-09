@@ -7,12 +7,12 @@
 # except according to those terms.
 
 [package]
-name = "scat"
+name = "sconcat"
 version = "0.1.0"
 authors = ["Trevor Spiteri <tspiteri@ieee.org>"]
 description = "String concatenation"
-documentation = "https://docs.rs/scat/"
-repository = "https://gitlab.com/tspiteri/scat"
+documentation = "https://docs.rs/sconcat/"
+repository = "https://gitlab.com/tspiteri/sconcat"
 readme = "README.md"
 keywords = ["concatenation", "string"]
 categories = ["rust-patterns"]
