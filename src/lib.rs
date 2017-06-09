@@ -8,23 +8,20 @@
 
 //! # String concatenation
 //!
-//! Concatenatation of [characters][char], [string slices][str] and
-//! [owned strings][String].
+//! Concatenatation of characters ([`char`][char]), string slices
+//! ([`&str`][str]) and owned strings ([`String`][String]).
 //!
 //! A concatenation is started with the [`CAT`][CAT] constant, and any
 //! number of characters, string slices or strings can be concatenated
 //! using the `+` operator. The concatenation can be converted or
-//! appended to a [`String`][String].
+//! appended to a `String`.
 //!
-//! If the concatenation contains at least one owned string with
-//! enough capacity to store the result, the leftmost such string will
-//! be resized to hold the result and no allocations or reallocations
-//! take place.
-//!
-//! If no term is an owned string with enough capacity, one allocation
-//! or reallocation takes place: if the first term is an owned string,
-//! it will be resized to hold the result, otherwise a new owned
-//! string with enough capacity is created.
+//! If the concatenation is converted to a `String`, and it starts
+//! with an owned string with enough capacity to store the result, no
+//! allocations or reallocations take place. If the concatenation is
+//! appended to a `String` with enough capacity, no allocations or
+//! reallocations take place. Otherwise, one allocation or
+//! reallocation takes place.
 //!
 //! ## Examples
 //!
@@ -34,7 +31,7 @@
 //! use sconcat::CAT;
 //!
 //! let cat1 = CAT + "Hello, " + "world! " + '☺';
-//! // One allocation and no following reallocations:
+//! // One allocation:
 //! let s1 = String::from(cat1);
 //! assert_eq!(s1, "Hello, world! ☺");
 //!
@@ -56,16 +53,17 @@
 //! assert_eq!(s, "Hello, world! ☺");
 //! ```
 //!
-//! If a `String` has enough reserved space, no reallocations will
-//! take place.
+//! If the concatenation starts with a `String` that has enough
+//! reserved space, no reallocations will take place.
 //!
 //! ```rust
 //! use sconcat::CAT;
 //!
-//! let mut s1 = String::from("☺");
-//! s1.reserve(14);
-//! let ptr = s1.as_ptr();
-//! let cat = CAT + "Hello, " + "world! " + s1;
+//! let mut buf = String::from("Hello, ");
+//! // 7 bytes for "world! " and 3 bytes for '☺'
+//! buf.reserve(10);
+//! let ptr = buf.as_ptr();
+//! let cat = CAT + buf + "world! " + '☺';
 //! let s2 = String::from(cat);
 //! assert_eq!(s2, "Hello, world! ☺");
 //! assert_eq!(s2.as_ptr(), ptr);
@@ -124,11 +122,12 @@ mod tests {
         s2 += CAT + ',' + " world" + String::from("! ") + '☺';
         assert_eq!(s2, "Hello, world! ☺");
 
-        let mut buf = String::from("☺");
-        buf.reserve(14);
+        let mut buf = String::from("Hello, ");
+        // 7 bytes for "world! " and 3 bytes for '☺'
+        buf.reserve(10);
         let ptr = buf.as_ptr();
         // buf is large enough, so no reallocations take place
-        let cat3 = CAT + "Hello, " + "world! " + buf;
+        let cat3 = CAT + buf + "world! " + '☺';
         let s3 = String::from(cat3);
         assert_eq!(s3, "Hello, world! ☺");
         assert_eq!(s3.as_ptr(), ptr);

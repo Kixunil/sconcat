@@ -39,11 +39,12 @@ let mut s2 = String::from("Hello");
 s2 += CAT + ',' + " world" + String::from("! ") + '☺';
 assert_eq!(s2, "Hello, world! ☺");
 
-let mut buf = String::from("☺");
-buf.reserve(14);
+let mut buf = String::from("Hello, ");
+// 7 bytes for "world! " and 3 bytes for '☺'
+buf.reserve(10);
 let ptr = buf.as_ptr();
 // buf is large enough, so no reallocations take place
-let cat3 = CAT + "Hello, " + "world! " + buf;
+let cat3 = CAT + buf + "world! " + '☺';
 let s3 = String::from(cat3);
 assert_eq!(s3, "Hello, world! ☺");
 assert_eq!(s3.as_ptr(), ptr);
