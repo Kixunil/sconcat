@@ -131,6 +131,13 @@ impl<L: Cat, R: Cat> AddAssign<CatMany<L, R>> for String {
     }
 }
 
+impl<'a, L: Cat, R: Cat> AddAssign<&'a CatMany<L, R>> for String {
+    fn add_assign(&mut self, rhs: &CatMany<L, R>) {
+        self.reserve(rhs.size_hint());
+        rhs.append_to(self);
+    }
+}
+
 impl<L: Cat, R: Cat> From<CatMany<L, R>> for String {
     fn from(src: CatMany<L, R>) -> String {
         let capacity = src.size_hint();
@@ -189,6 +196,13 @@ impl<L: Cat, R: Cat> Add<R> for CatOne<L> {
 
 impl<T: Cat> AddAssign<CatOne<T>> for String {
     fn add_assign(&mut self, rhs: CatOne<T>) {
+        self.reserve(rhs.inner.size_hint());
+        rhs.inner.append_to(self);
+    }
+}
+
+impl<'a, T: Cat> AddAssign<&'a CatOne<T>> for String {
+    fn add_assign(&mut self, rhs: &CatOne<T>) {
         self.reserve(rhs.inner.size_hint());
         rhs.inner.append_to(self);
     }
@@ -258,6 +272,10 @@ impl<T: Cat> Add<T> for CatNone {
 
 impl AddAssign<CatNone> for String {
     fn add_assign(&mut self, _rhs: CatNone) {}
+}
+
+impl<'a> AddAssign<&'a CatNone> for String {
+    fn add_assign(&mut self, _rhs: &CatNone) {}
 }
 
 impl From<CatNone> for String {
