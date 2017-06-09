@@ -97,9 +97,9 @@ impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
     }
 }
 
-impl<L: Cat, R: Cat> Add<CatNone> for CatMany<L, R> {
+impl<L: Cat, R: Cat> Add<CatStart> for CatMany<L, R> {
     type Output = CatMany<L, R>;
-    fn add(self, _rhs: CatNone) -> CatMany<L, R> {
+    fn add(self, _rhs: CatStart) -> CatMany<L, R> {
         self
     }
 }
@@ -167,9 +167,9 @@ pub struct CatOne<T: Cat> {
 
 impl<T: Cat + Copy> Copy for CatOne<T> {}
 
-impl<T: Cat> Add<CatNone> for CatOne<T> {
+impl<T: Cat> Add<CatStart> for CatOne<T> {
     type Output = CatOne<T>;
-    fn add(self, _rhs: CatNone) -> CatOne<T> {
+    fn add(self, _rhs: CatStart) -> CatOne<T> {
         self
     }
 }
@@ -228,7 +228,7 @@ impl<T: Cat + Display> Display for CatOne<T> {
 }
 
 #[derive(Clone, Copy)]
-pub struct CatNone;
+pub struct CatStart;
 
 /// A term that is used to start a string concatenation.
 ///
@@ -247,50 +247,50 @@ pub struct CatNone;
 /// s2 += CAT + ',' + " world" + String::from("! ") + '☺';
 /// assert_eq!(s2, "Hello, world! ☺");
 /// ```
-pub const CAT: CatNone = CatNone;
+pub const CAT: CatStart = CatStart;
 
-impl Add<CatNone> for CatNone {
-    type Output = CatNone;
-    fn add(self, _rhs: CatNone) -> CatNone {
+impl Add<CatStart> for CatStart {
+    type Output = CatStart;
+    fn add(self, _rhs: CatStart) -> CatStart {
         self
     }
 }
 
-impl<T: Cat> Add<CatOne<T>> for CatNone {
+impl<T: Cat> Add<CatOne<T>> for CatStart {
     type Output = CatOne<T>;
     fn add(self, rhs: CatOne<T>) -> CatOne<T> {
         rhs
     }
 }
 
-impl<T: Cat> Add<T> for CatNone {
+impl<T: Cat> Add<T> for CatStart {
     type Output = CatOne<T>;
     fn add(self, rhs: T) -> CatOne<T> {
         CatOne { inner: rhs }
     }
 }
 
-impl AddAssign<CatNone> for String {
-    fn add_assign(&mut self, _rhs: CatNone) {}
+impl AddAssign<CatStart> for String {
+    fn add_assign(&mut self, _rhs: CatStart) {}
 }
 
-impl<'a> AddAssign<&'a CatNone> for String {
-    fn add_assign(&mut self, _rhs: &CatNone) {}
+impl<'a> AddAssign<&'a CatStart> for String {
+    fn add_assign(&mut self, _rhs: &CatStart) {}
 }
 
-impl From<CatNone> for String {
-    fn from(_src: CatNone) -> String {
+impl From<CatStart> for String {
+    fn from(_src: CatStart) -> String {
         String::new()
     }
 }
 
-impl Debug for CatNone {
+impl Debug for CatStart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt("\"\"", f)
     }
 }
 
-impl Display for CatNone {
+impl Display for CatStart {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         Ok(())
     }
