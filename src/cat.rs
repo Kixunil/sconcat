@@ -130,10 +130,13 @@ unsafe impl Cat for String {
     }
 }
 
+#[derive(Clone)]
 pub struct CatMany<L: Cat, R: Cat> {
     lhs: L,
     rhs: R,
 }
+
+impl<L: Cat + Copy, R: Cat + Copy> Copy for CatMany<L, R> {}
 
 unsafe impl<L: Cat, R: Cat> Cat for CatMany<L, R> {
     fn max_len(&self) -> usize {
@@ -267,9 +270,12 @@ impl<L: Cat, R: Cat> AddAssign<CatMany<L, R>> for String {
     }
 }
 
+#[derive(Clone)]
 pub struct CatOne<T: Cat> {
     inner: T,
 }
+
+impl<T: Cat + Copy> Copy for CatOne<T> {}
 
 impl<T: Cat> Add<CatNone> for CatOne<T> {
     type Output = CatOne<T>;
@@ -333,6 +339,7 @@ impl<T: Cat> AddAssign<CatOne<T>> for String {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct CatNone;
 
 /// A term that is used to start a string concatenation.
