@@ -105,6 +105,9 @@
 //! [char]:    https://doc.rust-lang.org/std/primitive.char.html
 //! [str]:     https://doc.rust-lang.org/std/primitive.str.html
 
+#[cfg(feature = "fast_fmt")]
+extern crate fast_fmt;
+
 mod cat;
 pub use cat::CAT;
 
