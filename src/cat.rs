@@ -335,6 +335,7 @@ mod tests {
 #[cfg(feature = "fast_fmt")]
 use ::fast_fmt::{Fmt, Write};
 use ::fast_fmt::Display as FFDisplay;
+use ::fast_fmt::Debug as FFDebug;
 
 #[cfg(feature = "fast_fmt")]
 impl<L: Cat + Fmt, R: Cat + Fmt> Fmt for CatMany<L, R> {
@@ -368,5 +369,41 @@ impl Fmt for CatStart {
 
     fn size_hint(&self, _strategy: &FFDisplay) -> usize {
         0
+    }
+}
+
+#[cfg(feature = "fast_fmt")]
+impl<L: Cat + Fmt<FFDebug>, R: Cat + Fmt<FFDebug>> Fmt<FFDebug> for CatMany<L, R> {
+    fn fmt<W: Write>(&self, writer: &mut W, strategy: &FFDebug) -> Result<(), W::Error> {
+        self.lhs.fmt(writer, strategy)?;
+        Fmt::fmt(" + ", writer, &FFDisplay)?;
+        self.rhs.fmt(writer, strategy)
+    }
+
+    fn size_hint(&self, strategy: &FFDebug) -> usize {
+        Fmt::<FFDebug>::size_hint(&self.lhs, strategy) + 3 + Fmt::<FFDebug>::size_hint(&self.rhs, strategy)
+    }
+}
+
+#[cfg(feature = "fast_fmt")]
+impl<T: Cat + Fmt<FFDebug>> Fmt<FFDebug> for CatOne<T> {
+    fn fmt<W: Write>(&self, writer: &mut W, strategy: &FFDebug) -> Result<(), W::Error> {
+        self.inner.fmt(writer, strategy)
+    }
+
+    fn size_hint(&self, strategy: &FFDebug) -> usize {
+        Fmt::<FFDebug>::size_hint(&self.inner, strategy)
+    }
+}
+
+#[cfg(feature = "fast_fmt")]
+impl Fmt<FFDebug> for CatStart {
+    // Prints nothing
+    fn fmt<W: Write>(&self, writer: &mut W, _strategy: &FFDebug) -> Result<(), W::Error> {
+        Fmt::fmt("\"\"", writer, &FFDisplay)
+    }
+
+    fn size_hint(&self, _strategy: &FFDebug) -> usize {
+        2
     }
 }
